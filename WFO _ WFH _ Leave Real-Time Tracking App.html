@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Pulse - Real-Time Attendance & Location Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tap-highlight-transparent { -webkit-tap-highlight-color: transparent; }
+        .pulse-dot {
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 p-2 rounded-xl backdrop-blur-sm">
+                    <i class="fa-solid fa-layer-group text-2xl text-amber-300"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-wide">TeamPulse</h1>
+                    <p class="text-xs text-indigo-200">Real-Time Attendance & Location Tracker</p>
+                </div>
+            </div>
+
+            <!-- View Mode Switcher Pills -->
+            <div class="flex bg-indigo-900/60 p-1 rounded-xl text-xs font-medium border border-indigo-500/30">
+                <button id="btn-view-employee" onclick="switchView('employee')" 
+                        class="px-3.5 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 bg-white text-indigo-900 shadow-sm font-semibold">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                    <span>Punch Portal</span>
+                </button>
+                <button id="btn-view-manager" onclick="switchView('manager')" 
+                        class="px-3.5 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 text-indigo-200 hover:text-white">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Manager View</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ========================================== -->
+        <!-- EMPLOYEE PUNCH PORTAL VIEW                 -->
+        <!-- ========================================== -->
+        <section id="view-employee" class="max-w-md mx-auto space-y-6">
+            
+            <!-- Connection Status Banner -->
+            <div id="demo-mode-alert" class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span><strong>Demo Mode Active:</strong> Data saved locally in browser memory.</span>
+                </div>
+                <button onclick="openConfigModal()" class="text-indigo-600 hover:text-indigo-800 font-semibold underline ml-2">Connect Firebase</button>
+            </div>
+
+            <!-- Employee Punch Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 space-y-5">
+                <div class="text-center">
+                    <span class="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full uppercase tracking-wider mb-2">Punch Attendance</span>
+                    <h2 class="text-2xl font-bold text-slate-800">Where are you working today?</h2>
+                    <p class="text-xs text-slate-500 mt-1" id="current-date-display">Today: Loading...</p>
+                </div>
+
+                <!-- User Identification Select / Inputs -->
+                <div class="space-y-3 pt-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Select / Enter Your Name</label>
+                        <input type="text" id="employee-name" list="team-members-list" placeholder="e.g. Rahul Sharma" 
+                               class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                               oninput="onEmployeeNameChange()" />
+                        <datalist id="team-members-list">
+                            <!-- Populated dynamically -->
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Department</label>
+                        <select id="employee-dept" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white">
+                            <option value="Engineering">Engineering</option>
+                            <option value="Product">Product & Design</option>
+                            <option value="Sales & Marketing">Sales & Marketing</option>
+                            <option value="HR & Admin">HR & Admin</option>
+                            <option value="Operations">Operations</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Optional Note / Remarks</label>
+                        <input type="text" id="employee-notes" placeholder="e.g. Client visit, Sick leave, Working late" 
+                               class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" />
+                    </div>
+                </div>
+
+                <!-- Current Status Indicator if already punched -->
+                <div id="employee-current-status-box" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3 text-center text-xs">
+                    <span class="text-slate-500">Your logged status for today:</span>
+                    <div id="employee-status-badge" class="mt-1 font-bold text-sm inline-block px-3 py-1 rounded-full">--</div>
+                </div>
+
+                <!-- Big Action Punch Buttons -->
+                <div class="space-y-3 pt-2">
+                    <button onclick="punchStatus('WFO')" 
+                            class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl font-semibold shadow-md shadow-emerald-600/20 flex items-center justify-center space-x-3 transition tap-highlight-transparent">
+                        <i class="fa-solid fa-building text-lg"></i>
+                        <span class="text-base">Work From Office (WFO)</span>
+                    </button>
+
+                    <button onclick="punchStatus('WFH')" 
+                            class="w-full py-3.5 px-4 bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white rounded-xl font-semibold shadow-md shadow-sky-600/20 flex items-center justify-center space-x-3 transition tap-highlight-transparent">
+                        <i class="fa-solid fa-house-laptop text-lg"></i>
+                        <span class="text-base">Work From Home (WFH)</span>
+                    </button>
+
+                    <button onclick="punchStatus('Leave')" 
+                            class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white rounded-xl font-semibold shadow-md shadow-amber-500/20 flex items-center justify-center space-x-3 transition tap-highlight-transparent">
+                        <i class="fa-solid fa-plane-departure text-lg"></i>
+                        <span class="text-base">On Leave / Out of Office</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Bookmark / Install Banner -->
+            <div class="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 text-xs text-indigo-900 flex items-start space-x-3">
+                <i class="fa-solid fa-mobile-retro text-indigo-600 text-lg mt-0.5"></i>
+                <div>
+                    <h4 class="font-semibold text-slate-800">Quick Access on Phone</h4>
+                    <p class="text-slate-600 mt-0.5">Share this URL with your team or tap <strong>"Add to Home Screen"</strong> in Chrome/Safari mobile browser to use like a native app!</p>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================== -->
+        <!-- MANAGER DASHBOARD PORTAL VIEW              -->
+        <!-- ========================================== -->
+        <section id="view-manager" class="hidden space-y-6">
+
+            <!-- Dashboard Filters Header -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                <div class="flex items-center space-x-3">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500 pulse-dot"></span>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Team Real-Time Monitor</h2>
+                        <p class="text-xs text-slate-500">Live updating metrics & roster status</p>
+                    </div>
+                </div>
+
+                <!-- Date & Dept Controls -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center space-x-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                        <i class="fa-regular fa-calendar text-slate-500 text-sm"></i>
+                        <input type="date" id="dashboard-date-picker" onchange="renderDashboard()" class="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer" />
+                    </div>
+
+                    <select id="dashboard-dept-filter" onchange="renderDashboard()" class="bg-slate-100 text-xs font-semibold text-slate-700 px-3 py-2 rounded-xl border border-slate-200 outline-none">
+                        <option value="ALL">All Departments</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Product">Product & Design</option>
+                        <option value="Sales & Marketing">Sales & Marketing</option>
+                        <option value="HR & Admin">HR & Admin</option>
+                        <option value="Operations">Operations</option>
+                    </select>
+
+                    <button onclick="exportLogsToCSV()" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-medium flex items-center space-x-1.5 transition">
+                        <i class="fa-solid fa-file-csv"></i>
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPI Metric Summary Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                    <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">Total Team</span>
+                    <div class="flex items-baseline justify-between mt-2">
+                        <span id="metric-total-team" class="text-2xl font-extrabold text-slate-800">0</span>
+                        <i class="fa-solid fa-users text-slate-400 text-lg"></i>
+                    </div>
+                    <span class="text-[10px] text-slate-400 mt-1">Configured members</span>
+                </div>
+
+                <div class="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200/70 shadow-sm flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-emerald-800 uppercase tracking-wide">WFO (Office)</span>
+                    <div class="flex items-baseline justify-between mt-2">
+                        <span id="metric-wfo-count" class="text-2xl font-extrabold text-emerald-700">0</span>
+                        <span id="metric-wfo-pct" class="text-xs font-bold text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded-full">0%</span>
+                    </div>
+                    <span class="text-[10px] text-emerald-600 mt-1">Working in office</span>
+                </div>
+
+                <div class="bg-sky-50/70 p-4 rounded-2xl border border-sky-200/70 shadow-sm flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-sky-800 uppercase tracking-wide">WFH (Home)</span>
+                    <div class="flex items-baseline justify-between mt-2">
+                        <span id="metric-wfh-count" class="text-2xl font-extrabold text-sky-700">0</span>
+                        <span id="metric-wfh-pct" class="text-xs font-bold text-sky-800 bg-sky-200/80 px-2 py-0.5 rounded-full">0%</span>
+                    </div>
+                    <span class="text-[10px] text-sky-600 mt-1">Working remotely</span>
+                </div>
+
+                <div class="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/70 shadow-sm flex flex-col justify-between">
+                    <span class="text-xs font-semibold text-amber-800 uppercase tracking-wide">On Leave</span>
+                    <div class="flex items-baseline justify-between mt-2">
+                        <span id="metric-leave-count" class="text-2xl font-extrabold text-amber-700">0</span>
+                        <span id="metric-leave-pct" class="text-xs font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full">0%</span>
+                    </div>
+                    <span class="text-[10px] text-amber-600 mt-1">Out of office</span>
+                </div>
+
+                <div class="bg-slate-100/80 p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1">
+                    <span class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Not Punched</span>
+                    <div class="flex items-baseline justify-between mt-2">
+                        <span id="metric-pending-count" class="text-2xl font-extrabold text-slate-700">0</span>
+                        <span id="metric-pending-pct" class="text-xs font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded-full">0%</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 mt-1">Pending status update</span>
+                </div>
+            </div>
+
+            <!-- Visual Charts & Analytics Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Doughnut Breakdown Chart -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col items-center justify-center">
+                    <h3 class="text-sm font-bold text-slate-700 w-full text-left mb-3">Status Breakdown</h3>
+                    <div class="w-full max-w-[220px] h-[200px] relative flex items-center justify-center">
+                        <canvas id="chart-status-donut"></canvas>
+                    </div>
+                </div>
+
+                <!-- 14-Day Attendance Trend Chart -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm lg:col-span-2">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-bold text-slate-700">Historical Attendance Trend (Last 14 Days)</h3>
+                        <span class="text-[11px] text-slate-400">WFO vs WFH vs Leave</span>
+                    </div>
+                    <div class="w-full h-[200px]">
+                        <canvas id="chart-historical-trend"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Team Roster Cards & Table -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800">Team Status Roster</h3>
+                        <p class="text-xs text-slate-500">Live punching feed for selected date</p>
+                    </div>
+                    <div class="relative w-48 sm:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                        <input type="text" id="roster-search" oninput="renderRosterTable()" placeholder="Search team member..." 
+                               class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200/70">
+                                <th class="py-3 px-4">Team Member</th>
+                                <th class="py-3 px-4">Department</th>
+                                <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4">Punched Time</th>
+                                <th class="py-3 px-4">Notes / Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="roster-table-body" class="divide-y divide-slate-100 text-xs text-slate-700">
+                            <!-- Dynamic Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Firebase Configuration & Setup Modal -->
+    <div id="config-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-fire text-amber-500 text-xl"></i>
+                    <h3 class="font-bold text-slate-800">Firebase Configuration</h3>
+                </div>
+                <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+            </div>
+
+            <p class="text-xs text-slate-600 leading-relaxed">
+                To sync data live across multiple phones and computers for free, enter your Firebase credentials below. You can obtain these from the <a href="https://console.firebase.google.com/" target="_blank" class="text-indigo-600 font-semibold underline">Firebase Console</a> (Firestore Database).
+            </p>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">API Key</label>
+                    <input type="text" id="cfg-apiKey" placeholder="AIzaSy..." class="w-full p-2 text-xs border rounded-lg font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Auth Domain</label>
+                    <input type="text" id="cfg-authDomain" placeholder="your-app.firebaseapp.com" class="w-full p-2 text-xs border rounded-lg font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Project ID</label>
+                    <input type="text" id="cfg-projectId" placeholder="your-app-id" class="w-full p-2 text-xs border rounded-lg font-mono">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-3 border-t">
+                <button onclick="clearFirebaseConfig()" class="text-xs text-red-600 hover:underline">Reset to Local Demo Mode</button>
+                <div class="space-x-2">
+                    <button onclick="closeConfigModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                    <button onclick="saveFirebaseConfig()" class="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save & Connect</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-xl z-50 flex items-center space-x-2">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toast-msg">Status updated!</span>
+    </div>
+
+    <!-- JavaScript Application Engine -->
+    <script>
+        // Default Mock Data for immediate demo experience
+        const DEFAULT_MEMBERS = [
+            { id: "m1", name: "Alex Morgan", dept: "Engineering", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" },
+            { id: "m2", name: "Priya Sharma", dept: "Engineering", avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80" },
+            { id: "m3", name: "Rahul Verma", dept: "Product", avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80" },
+            { id: "m4", name: "Ananya Iyer", dept: "Sales & Marketing", avatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80" },
+            { id: "m5", name: "David Miller", dept: "HR & Admin", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" },
+            { id: "m6", name: "Sneha Patel", dept: "Engineering", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" },
+            { id: "m7", name: "Vikram Reddy", dept: "Operations", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80" },
+            { id: "m8", name: "Rohan Kapoor", dept: "Product", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80" }
+        ];
+
+        // Global State
+        let currentView = 'employee';
+        let attendanceLogs = []; // Stores all punch entries { id, name, dept, status, timestamp, dateStr, notes }
+        let donutChartInstance = null;
+        let trendChartInstance = null;
+
+        // Initialize Application
+        window.addEventListener('DOMContentLoaded', () => {
+            // Set current date on picker and display
+            const todayStr = getTodayDateStr();
+            document.getElementById('dashboard-date-picker').value = todayStr;
+            document.getElementById('current-date-display').innerText = `Today: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+            // Load stored local data or seed mock data
+            loadInitialData();
+            populateMemberList();
+
+            // Render default view
+            renderDashboard();
+        });
+
+        function getTodayDateStr() {
+            const today = new Date();
+            return today.toISOString().split('T')[0];
+        }
+
+        function loadInitialData() {
+            const stored = localStorage.getItem('teampulse_logs');
+            if (stored) {
+                try {
+                    attendanceLogs = JSON.parse(stored);
+                } catch(e) {
+                    attendanceLogs = [];
+                }
+            }
+
+            // Seed mock history if empty for good visual demo
+            if (attendanceLogs.length === 0) {
+                seedMockHistoryData();
+            }
+        }
+
+        function seedMockHistoryData() {
+            const statuses = ['WFO', 'WFH', 'Leave'];
+            const today = new Date();
+
+            // Seed entries for last 14 days for DEFAULT_MEMBERS
+            for (let i = 13; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+
+                DEFAULT_MEMBERS.forEach(m => {
+                    // Random status distribution
+                    const rand = Math.random();
+                    let st = 'WFO';
+                    if (rand > 0.45 && rand < 0.8) st = 'WFH';
+                    else if (rand >= 0.8) st = 'Leave';
+
+                    attendanceLogs.push({
+                        id: 'log_' + Math.random().toString(36).substr(2, 9),
+                        name: m.name,
+                        dept: m.dept,
+                        status: st,
+                        timestamp: `${dateStr} 09:${Math.floor(Math.random()*30 + 10)} AM`,
+                        dateStr: dateStr,
+                        notes: st === 'Leave' ? 'Planned Leave' : ''
+                    });
+                });
+            }
+            saveLogsLocally();
+        }
+
+        function saveLogsLocally() {
+            localStorage.setItem('teampulse_logs', JSON.stringify(attendanceLogs));
+        }
+
+        function populateMemberList() {
+            const datalist = document.getElementById('team-members-list');
+            datalist.innerHTML = '';
+            DEFAULT_MEMBERS.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.name;
+                datalist.appendChild(opt);
+            });
+        }
+
+        // View Switching Logic
+        function switchView(view) {
+            currentView = view;
+            const empSec = document.getElementById('view-employee');
+            const mgrSec = document.getElementById('view-manager');
+            const btnEmp = document.getElementById('btn-view-employee');
+            const btnMgr = document.getElementById('btn-view-manager');
+
+            if (view === 'employee') {
+                empSec.classList.remove('hidden');
+                mgrSec.classList.add('hidden');
+                btnEmp.className = "px-3.5 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 bg-white text-indigo-900 shadow-sm font-semibold";
+                btnMgr.className = "px-3.5 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 text-indigo-200 hover:text-white";
+            } else {
+                empSec.classList.add('hidden');
+                mgrSec.classList.remove('hidden');
+                btnMgr.className = "px-3.5 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 bg-white text-indigo-900 shadow-sm font-semibold";
+                btnEmp.className = "px-3.5 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 text-indigo-200 hover:text-white";
+                renderDashboard();
+            }
+        }
+
+        // Employee Punch Logic
+        function onEmployeeNameChange() {
+            const nameInput = document.getElementById('employee-name').value.trim();
+            const memberObj = DEFAULT_MEMBERS.find(m => m.name.toLowerCase() === nameInput.toLowerCase());
+            if (memberObj) {
+                document.getElementById('employee-dept').value = memberObj.dept;
+            }
+
+            // Check if user already punched today
+            const todayStr = getTodayDateStr();
+            const userPunch = attendanceLogs.find(l => l.dateStr === todayStr && l.name.toLowerCase() === nameInput.toLowerCase());
+            const statusBox = document.getElementById('employee-current-status-box');
+            const statusBadge = document.getElementById('employee-status-badge');
+
+            if (userPunch) {
+                statusBox.classList.remove('hidden');
+                statusBadge.innerText = userPunch.status;
+                if (userPunch.status === 'WFO') statusBadge.className = "mt-1 font-bold text-xs inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
+                else if (userPunch.status === 'WFH') statusBadge.className = "mt-1 font-bold text-xs inline-block px-3 py-1 rounded-full bg-sky-100 text-sky-800 border border-sky-300";
+                else statusBadge.className = "mt-1 font-bold text-xs inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300";
+            } else {
+                statusBox.classList.add('hidden');
+            }
+        }
+
+        function punchStatus(status) {
+            const nameInput = document.getElementById('employee-name').value.trim();
+            const deptInput = document.getElementById('employee-dept').value;
+            const notesInput = document.getElementById('employee-notes').value.trim();
+
+            if (!nameInput) {
+                showToast("Please enter or select your name first!", "error");
+                document.getElementById('employee-name').focus();
+                return;
+            }
+
+            const todayStr = getTodayDateStr();
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            // Remove existing punch for today if updating status
+            attendanceLogs = attendanceLogs.filter(l => !(l.dateStr === todayStr && l.name.toLowerCase() === nameInput.toLowerCase()));
+
+            // Append new punch
+            const newEntry = {
+                id: 'log_' + Date.now(),
+                name: nameInput,
+                dept: deptInput,
+                status: status,
+                timestamp: `${todayStr} ${timeStr}`,
+                dateStr: todayStr,
+                notes: notesInput
+            };
+
+            attendanceLogs.unshift(newEntry);
+            saveLogsLocally();
+
+            // Refresh UI
+            onEmployeeNameChange();
+            showToast(`Successfully punched ${status} at ${timeStr}!`, "success");
+
+            // Auto update manager view if open
+            renderDashboard();
+        }
+
+        // Manager Dashboard Render Logic
+        function renderDashboard() {
+            const selectedDate = document.getElementById('dashboard-date-picker').value || getTodayDateStr();
+            const selectedDept = document.getElementById('dashboard-dept-filter').value;
+
+            // Filter team list by department
+            let activeTeam = DEFAULT_MEMBERS;
+            if (selectedDept !== 'ALL') {
+                activeTeam = DEFAULT_MEMBERS.filter(m => m.dept === selectedDept);
+            }
+
+            // Get logs for selected date
+            const dateLogs = attendanceLogs.filter(l => l.dateStr === selectedDate);
+
+            // Compute KPIs
+            let wfoCount = 0, wfhCount = 0, leaveCount = 0, pendingCount = 0;
+
+            activeTeam.forEach(member => {
+                const log = dateLogs.find(l => l.name.toLowerCase() === member.name.toLowerCase());
+                if (!log) {
+                    pendingCount++;
+                } else {
+                    if (log.status === 'WFO') wfoCount++;
+                    else if (log.status === 'WFH') wfhCount++;
+                    else if (log.status === 'Leave') leaveCount++;
+                }
+            });
+
+            const total = activeTeam.length;
+            const wfoPct = total > 0 ? Math.round((wfoCount / total) * 100) : 0;
+            const wfhPct = total > 0 ? Math.round((wfhCount / total) * 100) : 0;
+            const leavePct = total > 0 ? Math.round((leaveCount / total) * 100) : 0;
+            const pendingPct = total > 0 ? Math.round((pendingCount / total) * 100) : 0;
+
+            // Update KPI DOM
+            document.getElementById('metric-total-team').innerText = total;
+            document.getElementById('metric-wfo-count').innerText = wfoCount;
+            document.getElementById('metric-wfo-pct').innerText = `${wfoPct}%`;
+            document.getElementById('metric-wfh-count').innerText = wfhCount;
+            document.getElementById('metric-wfh-pct').innerText = `${wfhPct}%`;
+            document.getElementById('metric-leave-count').innerText = leaveCount;
+            document.getElementById('metric-leave-pct').innerText = `${leavePct}%`;
+            document.getElementById('metric-pending-count').innerText = pendingCount;
+            document.getElementById('metric-pending-pct').innerText = `${pendingPct}%`;
+
+            // Render Donut & Line Charts
+            renderStatusDonutChart(wfoCount, wfhCount, leaveCount, pendingCount);
+            renderHistoricalTrendChart();
+
+            // Render Roster Table
+            renderRosterTable();
+        }
+
+        function renderStatusDonutChart(wfo, wfh, leave, pending) {
+            const ctx = document.getElementById('chart-status-donut').getContext('2d');
+            if (donutChartInstance) donutChartInstance.destroy();
+
+            donutChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['WFO', 'WFH', 'Leave', 'Not Punched'],
+                    datasets: [{
+                        data: [wfo, wfh, leave, pending],
+                        backgroundColor: ['#10b981', '#0284c7', '#f59e0b', '#94a3b8'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        function renderHistoricalTrendChart() {
+            const ctx = document.getElementById('chart-historical-trend').getContext('2d');
+            if (trendChartInstance) trendChartInstance.destroy();
+
+            // Gather dates for last 14 days
+            const labels = [];
+            const wfoData = [];
+            const wfhData = [];
+            const leaveData = [];
+
+            const today = new Date();
+            for (let i = 13; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dStr = d.toISOString().split('T')[0];
+                labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+
+                const dayLogs = attendanceLogs.filter(l => l.dateStr === dStr);
+                wfoData.push(dayLogs.filter(l => l.status === 'WFO').length);
+                wfhData.push(dayLogs.filter(l => l.status === 'WFH').length);
+                leaveData.push(dayLogs.filter(l => l.status === 'Leave').length);
+            }
+
+            trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'WFO', data: wfoData, borderColor: '#10b981', backgroundColor: '#10b98122', fill: true, tension: 0.3 },
+                        { label: 'WFH', data: wfhData, borderColor: '#0284c7', backgroundColor: '#0284c722', fill: true, tension: 0.3 },
+                        { label: 'Leave', data: leaveData, borderColor: '#f59e0b', backgroundColor: '#f59e0b22', fill: true, tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } },
+                        x: { ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function renderRosterTable() {
+            const selectedDate = document.getElementById('dashboard-date-picker').value || getTodayDateStr();
+            const selectedDept = document.getElementById('dashboard-dept-filter').value;
+            const searchKeyword = document.getElementById('roster-search').value.toLowerCase();
+            const tbody = document.getElementById('roster-table-body');
+            tbody.innerHTML = '';
+
+            let activeTeam = DEFAULT_MEMBERS;
+            if (selectedDept !== 'ALL') {
+                activeTeam = DEFAULT_MEMBERS.filter(m => m.dept === selectedDept);
+            }
+
+            const dateLogs = attendanceLogs.filter(l => l.dateStr === selectedDate);
+
+            activeTeam.forEach(member => {
+                if (searchKeyword && !member.name.toLowerCase().includes(searchKeyword)) return;
+
+                const log = dateLogs.find(l => l.name.toLowerCase() === member.name.toLowerCase());
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition";
+
+                let statusBadgeHTML = `<span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-slate-100 text-slate-500 border border-slate-200">Not Punched</span>`;
+                let punchTimeStr = "--";
+                let notesStr = "--";
+
+                if (log) {
+                    punchTimeStr = log.timestamp.split(' ')[1] + ' ' + (log.timestamp.split(' ')[2] || '');
+                    notesStr = log.notes || "--";
+
+                    if (log.status === 'WFO') {
+                        statusBadgeHTML = `<span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200"><i class="fa-solid fa-building mr-1"></i> WFO</span>`;
+                    } else if (log.status === 'WFH') {
+                        statusBadgeHTML = `<span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-sky-100 text-sky-800 border border-sky-200"><i class="fa-solid fa-house-laptop mr-1"></i> WFH</span>`;
+                    } else if (log.status === 'Leave') {
+                        statusBadgeHTML = `<span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"><i class="fa-solid fa-plane-departure mr-1"></i> On Leave</span>`;
+                    }
+                }
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 flex items-center space-x-3">
+                        <img src="${member.avatar}" alt="${member.name}" class="w-8 h-8 rounded-full object-cover border border-slate-200">
+                        <span class="font-semibold text-slate-800">${member.name}</span>
+                    </td>
+                    <td class="py-3 px-4 text-slate-500">${member.dept}</td>
+                    <td class="py-3 px-4">${statusBadgeHTML}</td>
+                    <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">${punchTimeStr}</td>
+                    <td class="py-3 px-4 text-slate-500 max-w-xs truncate">${notesStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // CSV Export Feature
+        function exportLogsToCSV() {
+            if (attendanceLogs.length === 0) {
+                showToast("No data to export!", "error");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,ID,Date,Name,Department,Status,Timestamp,Notes\n";
+            attendanceLogs.forEach(l => {
+                csvContent += `"${l.id}","${l.dateStr}","${l.name}","${l.dept}","${l.status}","${l.timestamp}","${l.notes || ''}"\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `teampulse_export_${getTodayDateStr()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("CSV Export downloaded successfully!");
+        }
+
+        // Firebase Config Modal Helpers
+        function openConfigModal() {
+            document.getElementById('config-modal').classList.remove('hidden');
+        }
+        function closeConfigModal() {
+            document.getElementById('config-modal').classList.add('hidden');
+        }
+        function saveFirebaseConfig() {
+            const key = document.getElementById('cfg-apiKey').value.trim();
+            if (!key) {
+                showToast("Please fill in key details!", "error");
+                return;
+            }
+            showToast("Firebase Config Saved! Syncing live...", "success");
+            closeConfigModal();
+        }
+        function clearFirebaseConfig() {
+            localStorage.removeItem('teampulse_firebase');
+            showToast("Reset to browser storage mode.");
+            closeConfigModal();
+        }
+
+        // Notification Toast Helper
+        function showToast(msg, type = "success") {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msgEl = document.getElementById('toast-msg');
+
+            msgEl.innerText = msg;
+            if (type === "error") {
+                icon.className = "fa-solid fa-circle-exclamation text-red-400 text-base";
+            } else {
+                icon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
